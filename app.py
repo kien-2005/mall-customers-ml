@@ -2,6 +2,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly.express as px
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
@@ -89,7 +90,6 @@ for cluster in range(k):
     X_cluster_test = X_test[test_clusters == cluster]
 
     if len(X_cluster_test) > 0:
-
         y_pred[test_clusters == cluster] = models[
             cluster
         ].predict(X_cluster_test)
@@ -106,8 +106,26 @@ st.set_page_config(
     layout="wide"
 )
 
+st.markdown(
+    """
+    <h1 style='text-align:center;'>
+    🛍️ Dự đoán Spending Score
+    </h1>
+    """,
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    """
+    <h3 style='text-align:center;color:gray;'>
+    KMeans + Linear Regression
+    </h3>
+    """,
+    unsafe_allow_html=True
+)
+
 # =========================
-# SIDEBAR
+# SIDEBAR INPUT
 # =========================
 
 st.sidebar.title("Nhập thông tin khách hàng")
@@ -132,39 +150,13 @@ income = st.sidebar.slider(
 )
 
 # =========================
-# MAIN TITLE
-# =========================
-
-st.markdown(
-    """
-    <h1 style='text-align:center;'>
-    🛍️ Dự đoán Spending Score
-    </h1>
-    """,
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    """
-    <h3 style='text-align:center;color:gray;'>
-    KMeans + Linear Regression
-    </h3>
-    """,
-    unsafe_allow_html=True
-)
-
-st.write("")
-
-# =========================
-# PREDICT BUTTON
+# PREDICT
 # =========================
 
 if st.button("Dự đoán Spending Score 🎯"):
 
-    # Encode gender
     gender_value = 1 if gender == "Male" else 0
 
-    # Create input
     input_data = pd.DataFrame([[
         1,
         gender_value,
@@ -172,19 +164,13 @@ if st.button("Dự đoán Spending Score 🎯"):
         income
     ]], columns=X.columns)
 
-    # Scale
     input_scaled = scaler.transform(input_data)
 
-    # Predict cluster
     cluster = kmeans.predict(input_scaled)[0]
-
-    # Predict spending score
     prediction = models[cluster].predict(input_scaled)[0]
 
-    prediction = round(prediction, 2)
-
     st.success(
-        f"Spending Score dự đoán: {prediction}"
+        f"Spending Score dự đoán: {round(prediction,2)}"
     )
 
     st.info(
@@ -192,32 +178,62 @@ if st.button("Dự đoán Spending Score 🎯"):
     )
 
 # =========================
-# MODEL METRICS
+# METRICS
 # =========================
 
-st.write("")
-st.write("")
-st.subheader("Đánh giá mô hình")
+st.subheader("📊 Đánh giá mô hình")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.metric(
-        "MSE",
-        round(mse, 2)
-    )
+    st.metric("MSE", round(mse, 2))
 
 with col2:
-    st.metric(
-        "R² Score",
-        round(r2, 2)
+    st.metric("R² Score", round(r2, 2))
+
+# =========================
+# VISUALIZATION
+# =========================
+
+st.subheader("📈 Biểu đồ phân cụm KMeans")
+
+# Thêm cluster vào df để vẽ
+df_scaled_full = scaler.transform(X)
+df["Cluster"] = kmeans.predict(df_scaled_full)
+
+fig = px.scatter(
+    df,
+    x="Annual Income (k$)",
+    y="Spending Score (1-100)",
+    color="Cluster",
+    title="KMeans Clustering"
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+# =========================
+# REGRESSION VISUALIZATION
+# =========================
+
+st.subheader("📉 Hồi quy theo từng cụm")
+
+for cluster in range(k):
+
+    cluster_data = df[df["Cluster"] == cluster]
+
+    fig_reg = px.scatter(
+        cluster_data,
+        x="Annual Income (k$)",
+        y="Spending Score (1-100)",
+        trendline="ols",
+        title=f"Cluster {cluster}"
     )
+
+    st.plotly_chart(fig_reg, use_container_width=True)
 
 # =========================
 # SHOW DATA
 # =========================
 
-st.write("")
-st.subheader("Dữ liệu mẫu")
-
+st.subheader("📄 Dữ liệu mẫu")
 st.dataframe(df.head())
